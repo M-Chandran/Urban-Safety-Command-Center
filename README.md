@@ -185,7 +185,7 @@ This project is for educational and research purposes.
 
 ## 👨‍💻 Author
 
-- **Your Name** - Initial work
+- **M.Chandran** - Initial work
 
 ---
 
