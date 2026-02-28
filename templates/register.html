@@ -1,0 +1,184 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register | Urban Safety Command Center</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="auth-page">
+    <div class="auth-shell">
+        <section class="auth-showcase animate-fade-in-left">
+            <h1>Urban Safety</h1>
+            <p>Build your command center account and start forecasting high-risk areas.</p>
+
+            <ul>
+                <li>Centralized model training workspace</li>
+                <li>Risk-level prediction history tracking</li>
+                <li>Export-ready forecasting pipelines</li>
+            </ul>
+        </section>
+
+        <section class="auth-panel animate-fade-in-up">
+            <h2>Create Account</h2>
+            <p class="auth-subtitle">Start using the full forecasting suite.</p>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="alerts-container">
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }}">
+                                <span class="alert-icon">
+                                    {% if category == 'success' %}OK{% elif category == 'error' %}X{% elif category == 'warning' %}!{% else %}i{% endif %}
+                                </span>
+                                <span>{{ message }}</span>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            <form method="POST" action="{{ url_for('register') }}" class="auth-form" id="registerForm">
+                <div class="form-group">
+                    <label for="username" class="form-label">Username</label>
+                    <input type="text" id="username" name="username" class="form-input" placeholder="Choose username" required autocomplete="username" minlength="3" maxlength="20">
+                </div>
+
+                <div class="form-group">
+                    <label for="email" class="form-label">Email Address</label>
+                    <input type="email" id="email" name="email" class="form-input" placeholder="Enter email" required autocomplete="email">
+                </div>
+
+                <div class="form-group">
+                    <label for="password" class="form-label">Password</label>
+                    <div class="password-toggle">
+                        <input type="password" id="password" name="password" class="form-input" placeholder="Create password" required autocomplete="new-password" minlength="6" onkeyup="checkPasswordStrength()">
+                        <button type="button" onclick="togglePassword('password', 'toggleIcon1')" class="password-toggle-btn" aria-label="Toggle password visibility">
+                            <span id="toggleIcon1">Show</span>
+                        </button>
+                    </div>
+                    <div class="password-strength">
+                        <div class="password-strength-bar" id="strengthBar"></div>
+                    </div>
+                    <small class="text-gray text-sm" id="strengthText"></small>
+                </div>
+
+                <div class="form-group">
+                    <label for="confirm_password" class="form-label">Confirm Password</label>
+                    <div class="password-toggle">
+                        <input type="password" id="confirm_password" name="confirm_password" class="form-input" placeholder="Confirm password" required autocomplete="new-password" onkeyup="checkPasswordMatch()">
+                        <button type="button" onclick="togglePassword('confirm_password', 'toggleIcon2')" class="password-toggle-btn" aria-label="Toggle password visibility">
+                            <span id="toggleIcon2">Show</span>
+                        </button>
+                    </div>
+                    <small class="text-sm" id="matchText"></small>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-lg w-full" id="registerBtn">
+                    <span class="btn-text">Create Account</span>
+                </button>
+            </form>
+
+            <p class="auth-switch">Already have an account? <a href="{{ url_for('login') }}">Sign in</a></p>
+        </section>
+    </div>
+
+    <script>
+        function togglePassword(inputId, iconId) {
+            var input = document.getElementById(inputId);
+            var icon = document.getElementById(iconId);
+            if (!input || !icon) {
+                return;
+            }
+
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.textContent = 'Hide';
+            } else {
+                input.type = 'password';
+                icon.textContent = 'Show';
+            }
+        }
+
+        function checkPasswordStrength() {
+            var password = document.getElementById('password').value;
+            var strengthBar = document.getElementById('strengthBar');
+            var strengthText = document.getElementById('strengthText');
+            var strength = 0;
+
+            if (password.length >= 6) strength += 1;
+            if (password.length >= 10) strength += 1;
+            if (/[A-Z]/.test(password)) strength += 1;
+            if (/[0-9]/.test(password)) strength += 1;
+            if (/[^A-Za-z0-9]/.test(password)) strength += 1;
+
+            strengthBar.className = 'password-strength-bar';
+
+            if (password.length === 0) {
+                strengthText.textContent = '';
+            } else if (strength <= 2) {
+                strengthBar.classList.add('weak');
+                strengthText.textContent = 'Weak password';
+                strengthText.className = 'text-sm text-danger';
+            } else if (strength <= 3) {
+                strengthBar.classList.add('medium');
+                strengthText.textContent = 'Medium password';
+                strengthText.className = 'text-sm text-warning';
+            } else {
+                strengthBar.classList.add('strong');
+                strengthText.textContent = 'Strong password';
+                strengthText.className = 'text-sm text-success';
+            }
+        }
+
+        function checkPasswordMatch() {
+            var password = document.getElementById('password').value;
+            var confirmPassword = document.getElementById('confirm_password').value;
+            var matchText = document.getElementById('matchText');
+
+            if (confirmPassword.length === 0) {
+                matchText.textContent = '';
+                return;
+            }
+
+            if (password === confirmPassword) {
+                matchText.textContent = 'Passwords match';
+                matchText.className = 'text-sm text-success';
+            } else {
+                matchText.textContent = 'Passwords do not match';
+                matchText.className = 'text-sm text-danger';
+            }
+        }
+
+        document.getElementById('registerForm').addEventListener('submit', function(event) {
+            var password = document.getElementById('password').value;
+            var confirmPassword = document.getElementById('confirm_password').value;
+
+            if (password !== confirmPassword) {
+                event.preventDefault();
+                alert('Passwords do not match.');
+                return;
+            }
+
+            var btn = document.getElementById('registerBtn');
+            btn.classList.add('btn-loading');
+            btn.disabled = true;
+        });
+
+        document.querySelectorAll('.alert').forEach(function(alert) {
+            setTimeout(function() {
+                alert.style.opacity = '0';
+                alert.style.transform = 'translateY(-8px)';
+                setTimeout(function() {
+                    if (alert.parentNode) {
+                        alert.parentNode.removeChild(alert);
+                    }
+                }, 220);
+            }, 5000);
+        });
+    </script>
+</body>
+</html>

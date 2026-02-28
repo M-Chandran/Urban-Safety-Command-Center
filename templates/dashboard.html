@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | Urban Safety Command Center</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="site-dashboard">
+    <div class="dashboard-layout">
+        <aside class="layout-nav animate-fade-in-left">
+            <div class="nav-brand">
+                <div class="nav-brand-mark">US</div>
+                <div>
+                    <h2>Urban Safety</h2>
+                    <p>Command Center</p>
+                </div>
+            </div>
+
+            <nav class="nav-links">
+                <a href="#overview-section">Overview</a>
+                <a href="#upload-section">Upload Data</a>
+                <a href="#files-section">Data Files</a>
+                <a href="#charts-section">Visualizations</a>
+                <a href="#prediction-section">Predictions</a>
+                <a href="#trained-models-section">Models</a>
+                <a href="#history-section">History</a>
+                <a href="#workflow-section">Workflow</a>
+            </nav>
+
+            <div class="nav-footer">
+                <p class="nav-user-label">Signed in as</p>
+                <p class="nav-user-name">{{ user.username }}</p>
+                <a href="{{ url_for('logout') }}" class="btn btn-danger btn-sm w-full">Logout</a>
+            </div>
+        </aside>
+
+        <main class="dashboard-main">
+            <header class="dashboard-header animate-fade-in-down">
+                <div class="dashboard-title-wrap">
+                    <div class="dashboard-title-mark">CS</div>
+                    <div>
+                        <h1>City Safety Forecast</h1>
+                        <p>Predictive policing insights from historical crime data.</p>
+                    </div>
+                </div>
+                <div class="dashboard-header-actions">
+                    <span class="header-operator">Operator: {{ user.username }}</span>
+                    <a href="{{ url_for('logout') }}" class="btn btn-secondary btn-sm">Sign Out</a>
+                </div>
+            </header>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="alerts-container animate-fade-in-up">
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }}">
+                                <span class="alert-icon">
+                                    {% if category == 'success' %}OK{% elif category == 'error' %}X{% elif category == 'warning' %}!{% else %}i{% endif %}
+                                </span>
+                                <span>{{ message }}</span>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            <section class="dashboard-section animate-fade-in-up" id="overview-section">
+                <div class="section-head">
+                    <h2>Operational Overview</h2>
+                    <p>Live status indicators for records, risk, and model health.</p>
+                </div>
+
+                <div class="stats-grid">
+                    <article class="stat-card stat-card-records">
+                        <h3>Total Records</h3>
+                        <p class="stat-number" id="total-records">--</p>
+                    </article>
+
+                    <article class="stat-card stat-card-risk">
+                        <h3>High Risk Areas</h3>
+                        <p class="stat-number" id="high-risk">--</p>
+                    </article>
+
+                    <article class="stat-card stat-card-models">
+                        <h3>ML Models</h3>
+                        <p class="stat-number" id="ml-models">--</p>
+                    </article>
+
+                    <article class="stat-card stat-card-accuracy">
+                        <h3>Average Accuracy</h3>
+                        <p class="stat-number" id="avg-accuracy">--%</p>
+                    </article>
+                </div>
+            </section>
+
+            <section class="dashboard-section animate-fade-in-up" id="upload-section">
+                <div class="section-head">
+                    <h2>Upload Crime Data</h2>
+                    <p>CSV and Excel files are supported for analysis, visualization, and model training.</p>
+                </div>
+
+                <form method="POST" action="{{ url_for('upload_crime_data') }}" enctype="multipart/form-data">
+                    <label class="file-upload" id="fileUpload" for="crime_file">
+                        <input type="file" name="crime_file" id="crime_file" accept=".csv,.xlsx,.xls" required>
+                        <div class="file-upload-copy">
+                            <h3>Drop file here or click to browse</h3>
+                            <p>Accepted formats: CSV, XLSX, XLS</p>
+                        </div>
+                    </label>
+                    <button type="submit" class="btn btn-primary">Upload and Analyze</button>
+                </form>
+            </section>
+
+            <section class="dashboard-section animate-fade-in-up" id="files-section">
+                <div class="section-head">
+                    <h2>Crime Data Files</h2>
+                    <p>Select chart type, visualize, train, and inspect trend behavior per file.</p>
+                </div>
+
+                {% if crime_files %}
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Filename</th>
+                                    <th>Chart Type</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for file in crime_files %}
+                                <tr>
+                                    <td>{{ file.name }}</td>
+                                    <td>
+                                        <select id="chart-type-{{ loop.index }}" class="form-select compact-select">
+                                            <option value="bar">Bar</option>
+                                            <option value="line">Line</option>
+                                            <option value="pie">Pie</option>
+                                            <option value="doughnut">Doughnut</option>
+                                            <option value="radar">Radar</option>
+                                            <option value="polarArea">Polar Area</option>
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group">
+                                            <button id="btn-{{ loop.index }}" type="button" onclick="loadCharts('{{ file.name }}', {{ loop.index }})" class="btn btn-primary btn-sm">Visualize</button>
+                                            <button type="button" onclick="showTrainModel('{{ file.name }}')" class="btn btn-info btn-sm">Train</button>
+                                            <button type="button" onclick="showTrends('{{ file.name }}')" class="btn btn-warning btn-sm">Trends</button>
+                                            <a href="{{ url_for('delete_crime_file', filename=file.name) }}" class="btn btn-danger btn-sm">Delete</a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="empty-state">
+                        <h3>No crime data uploaded yet</h3>
+                        <p>Upload your first file to start visual analysis and forecasting.</p>
+                    </div>
+                {% endif %}
+            </section>
+            <section class="dashboard-section animate-fade-in-up" id="charts-section" style="display: none;">
+                <div class="section-head">
+                    <h2>Crime Visualizations</h2>
+                    <p>Interactive charts with top-area ranking overlays.</p>
+                </div>
+                <div id="charts-container" class="charts-grid"></div>
+            </section>
+
+            <section class="dashboard-section animate-fade-in-up" id="ml-section" style="display: none;">
+                <div class="section-head">
+                    <h2>Train ML Model</h2>
+                    <p>Select your algorithm and target field to train a prediction model.</p>
+                </div>
+
+                <form method="POST" action="{{ url_for('train_model') }}" class="panel-form">
+                    <input type="hidden" name="filename" id="train_filename">
+
+                    <div class="grid grid-cols-2 form-grid-gap">
+                        <div class="form-group">
+                            <label for="model_name" class="form-label">Model Name</label>
+                            <input type="text" name="model_name" id="model_name" class="form-input" placeholder="crime_forecast_v1" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="model_type" class="form-label">Algorithm</label>
+                            <select name="model_type" id="model_type" class="form-select" required>
+                                {% for model in available_models %}
+                                <option value="{{ model.id }}">{{ model.name }} - {{ model.desc }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="target_column" class="form-label">Target Column</label>
+                        <select name="target_column" id="target_column" class="form-select" required>
+                            <option value="">Select column...</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Train Model</button>
+                </form>
+            </section>
+
+            <section class="dashboard-section animate-fade-in-up" id="trend-section" style="display: none;">
+                <div class="section-head">
+                    <h2>Trend Analysis</h2>
+                    <p>Context and trend diagnostics from historical records.</p>
+                </div>
+                <div id="trend-content"></div>
+            </section>
+
+            <section class="dashboard-section animate-fade-in-up" id="prediction-section">
+                <div class="section-head">
+                    <h2>Prediction Operations</h2>
+                    <p>Single-shot, multi-step forecasting, and export workflows.</p>
+                </div>
+
+                {% if models %}
+                    <div class="operation-block">
+                        <h3 class="form-subtitle">Single Prediction</h3>
+                        <form method="POST" action="{{ url_for('predict') }}" class="panel-form">
+                            <div class="grid grid-cols-2 form-grid-gap">
+                                <div class="form-group">
+                                    <label for="predict_model" class="form-label">Model</label>
+                                    <select name="model_name" id="predict_model" class="form-select" required>
+                                        {% for model in models %}
+                                        <option value="{{ model.name }}" data-feature-count="{{ model.feature_count or 0 }}" data-feature-columns="{{ (model.feature_columns or [])|join(', ') }}" data-feature-defaults="{{ (model.default_feature_values or [])|join(', ') }}">{{ model.name }} ({{ model.model_type_name or model.model_type }})</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="features" class="form-label">Features (comma-separated)</label>
+                                    <input type="text" name="features" id="features" class="form-input" placeholder="12, 4.5, 18, 3" required>
+                                    <small id="predict-hint" class="text-gray text-sm"></small>
+                                    <button type="button" onclick="autoFillFeatures('predict_model', 'features')" class="btn btn-secondary btn-sm">Auto-fill Sample</button>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary">Predict</button>
+                        </form>
+                    </div>
+
+                    <div class="operation-block">
+                        <h3 class="form-subtitle">Multi-Step Prediction</h3>
+                        <form method="POST" action="{{ url_for('multi_step_predict') }}" class="panel-form">
+                            <div class="grid grid-cols-3 form-grid-gap">
+                                <div class="form-group">
+                                    <label for="ms_model" class="form-label">Model</label>
+                                    <select name="model_name" id="ms_model" class="form-select" required>
+                                        {% for model in models %}
+                                        <option value="{{ model.name }}" data-feature-count="{{ model.feature_count or 0 }}" data-feature-columns="{{ (model.feature_columns or [])|join(', ') }}" data-feature-defaults="{{ (model.default_feature_values or [])|join(', ') }}">{{ model.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="ms_features" class="form-label">Historical Features</label>
+                                    <input type="text" name="features" id="ms_features" class="form-input" placeholder="12, 4.5, 18, 3" required>
+                                    <small id="ms-hint" class="text-gray text-sm"></small>
+                                    <button type="button" onclick="autoFillFeatures('ms_model', 'ms_features')" class="btn btn-secondary btn-sm">Auto-fill Sample</button>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="steps" class="form-label">Days Ahead</label>
+                                    <input type="number" name="steps" id="steps" class="form-input" value="7" min="1" max="30" required>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-warning">Forecast</button>
+                        </form>
+                    </div>
+
+                    <div class="operation-block">
+                        <h3 class="form-subtitle">Export Predictions</h3>
+                        <form method="POST" action="{{ url_for('export_predictions') }}" class="panel-form">
+                            <div class="grid grid-cols-3 form-grid-gap">
+                                <div class="form-group">
+                                    <label for="export_model" class="form-label">Model</label>
+                                    <select name="model_name" id="export_model" class="form-select" required>
+                                        {% for model in models %}
+                                        <option value="{{ model.name }}" data-feature-count="{{ model.feature_count or 0 }}" data-feature-columns="{{ (model.feature_columns or [])|join(', ') }}" data-feature-defaults="{{ (model.default_feature_values or [])|join(', ') }}">{{ model.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="export_features" class="form-label">Initial Features</label>
+                                    <input type="text" name="features" id="export_features" class="form-input" placeholder="12, 4.5, 18, 3" required>
+                                    <small id="export-hint" class="text-gray text-sm"></small>
+                                    <button type="button" onclick="autoFillFeatures('export_model', 'export_features')" class="btn btn-secondary btn-sm">Auto-fill Sample</button>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="periods" class="form-label">Periods</label>
+                                    <input type="number" name="periods" id="periods" class="form-input" value="12" min="1" max="120" required>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-success">Export CSV</button>
+                        </form>
+                    </div>
+                {% else %}
+                    <div class="empty-state">
+                        <h3>No trained models available</h3>
+                        <p>Train a model first to run prediction workflows.</p>
+                    </div>
+                {% endif %}
+            </section>
+            {% if models %}
+            <section class="dashboard-section animate-fade-in-up" id="trained-models-section">
+                <div class="section-head">
+                    <h2>Trained Models</h2>
+                    <p>Performance snapshots and top predictive drivers.</p>
+                </div>
+
+                <div class="table-container">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Model</th>
+                                <th>Algorithm</th>
+                                <th>Train</th>
+                                <th>Test</th>
+                                <th>RMSE</th>
+                                <th>Top Drivers</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for model in models %}
+                            <tr>
+                                <td>{{ model.name }}</td>
+                                <td>{{ model.model_type_name or model.model_type }}</td>
+                                <td>{{ "%.1f"|format(model.accuracy_percent if model.accuracy_percent is defined else ((model.accuracy * 100) if model.accuracy else 0)) }}%</td>
+                                <td>{{ "%.1f"|format(model.test_accuracy_percent if model.test_accuracy_percent is defined else ((model.test_accuracy * 100) if model.test_accuracy else 0)) }}%</td>
+                                <td>{{ "%.2f"|format(model.rmse if model.rmse else 0) }}</td>
+                                <td>
+                                    {% if model.feature_importance %}
+                                        {% for item in model.feature_importance[:3] %}
+                                            <div class="driver-chip">{{ item.feature }} ({{ "%.1f"|format(item.percent if item.percent is defined else (item.importance * 100)) }}%)</div>
+                                        {% endfor %}
+                                    {% else %}
+                                        <span class="text-gray text-sm">Not available</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('delete_model', model_name=model.name) }}" class="btn btn-danger btn-sm">Delete</a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+            {% endif %}
+
+            <section class="dashboard-section animate-fade-in-up" id="history-section">
+                <div class="section-head section-head-inline">
+                    <div>
+                        <h2>Prediction History</h2>
+                        <p>Recent forecasting actions and risk outcomes.</p>
+                    </div>
+                    {% if prediction_history %}
+                    <a href="{{ url_for('export_prediction_history') }}" class="btn btn-secondary btn-sm">Export History CSV</a>
+                    {% endif %}
+                </div>
+
+                {% if prediction_history %}
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>Model</th>
+                                    <th>Type</th>
+                                    <th>Prediction</th>
+                                    <th>Risk</th>
+                                    <th>Confidence</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for event in prediction_history %}
+                                <tr>
+                                    <td>{{ event.timestamp }}</td>
+                                    <td>{{ event.model_name }}</td>
+                                    <td>{{ event.prediction_type }}</td>
+                                    <td>{{ event.prediction }}</td>
+                                    <td><span class="risk-tag risk-tag-{{ (event.risk_level or 'unknown')|lower|replace(' ', '-') }}">{{ event.risk_level }}</span></td>
+                                    <td>{{ event.confidence if event.confidence else '-' }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="empty-state">
+                        <h3>No prediction history yet</h3>
+                        <p>Run predictions to build a timeline of risk and confidence.</p>
+                    </div>
+                {% endif %}
+            </section>
+
+            <section class="dashboard-section animate-fade-in-up" id="workflow-section">
+                <div class="section-head">
+                    <h2>How It Works</h2>
+                    <p>Fast sequence from data ingestion to proactive risk decisions.</p>
+                </div>
+
+                <div class="workflow-grid">
+                    <article class="info-card">
+                        <div class="info-icon">1</div>
+                        <h3>Upload Data</h3>
+                        <p>Bring in historical records from CSV or Excel files.</p>
+                    </article>
+
+                    <article class="info-card">
+                        <div class="info-icon">2</div>
+                        <h3>Train Algorithms</h3>
+                        <p>Select the best regression model for your target variable.</p>
+                    </article>
+
+                    <article class="info-card">
+                        <div class="info-icon">3</div>
+                        <h3>Forecast Risk</h3>
+                        <p>Run single or multi-step forecasts for future periods.</p>
+                    </article>
+
+                    <article class="info-card">
+                        <div class="info-icon">4</div>
+                        <h3>Act Faster</h3>
+                        <p>Prioritize intervention using ranked high-risk areas.</p>
+                    </article>
+                </div>
+            </section>
+        </main>
+
+        <aside class="layout-aside animate-fade-in-right">
+            <section class="dashboard-side-card">
+                <h3>Live Risk Alerts</h3>
+                <p class="text-gray text-sm">Most recent events from prediction activity.</p>
+
+                {% if prediction_history %}
+                    <div class="risk-feed-list">
+                        {% for event in prediction_history[:8] %}
+                            {% set risk_key = (event.risk_level or 'unknown')|lower|replace(' ', '-') %}
+                            <article class="risk-feed-item risk-feed-{{ risk_key }}">
+                                <div class="risk-feed-meta">
+                                    <strong>{{ event.model_name }}</strong>
+                                    <span>{{ event.prediction_type }}</span>
+                                    <span>{{ event.timestamp }}</span>
+                                </div>
+                                <span class="risk-pill risk-pill-{{ risk_key }}">{{ event.risk_level or 'UNKNOWN' }}</span>
+                            </article>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="empty-state compact">
+                        <h3>No alerts yet</h3>
+                        <p>Run predictions to populate this panel.</p>
+                    </div>
+                {% endif %}
+            </section>
+        </aside>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p class="loading-text">Processing request...</p>
+        </div>
+    </div>
+
+    <script>
+        var chartInstances = [];
+
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDashboardStats();
+            initializePredictionForms();
+            bindFileUploadLabel();
+            autoHideAlerts();
+        });
+
+        function bindFileUploadLabel() {
+            var input = document.getElementById('crime_file');
+            var upload = document.getElementById('fileUpload');
+            if (!input || !upload) {
+                return;
+            }
+
+            input.addEventListener('change', function() {
+                if (input.files && input.files.length > 0) {
+                    upload.classList.add('has-file');
+                } else {
+                    upload.classList.remove('has-file');
+                }
+            });
+        }
+
+        function autoHideAlerts() {
+            document.querySelectorAll('.alert').forEach(function(alert) {
+                setTimeout(function() {
+                    alert.style.opacity = '0';
+                    alert.style.transform = 'translateY(-8px)';
+                    setTimeout(function() {
+                        if (alert.parentNode) {
+                            alert.parentNode.removeChild(alert);
+                        }
+                    }, 220);
+                }, 5000);
+            });
+        }
+
+        function showLoading() {
+            document.getElementById('loadingOverlay').classList.add('active');
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingOverlay').classList.remove('active');
+        }
+        function showToast(message, type) {
+            var container = document.getElementById('toastContainer');
+            if (!container) {
+                return;
+            }
+
+            var icon = 'i';
+            if (type === 'success') {
+                icon = 'OK';
+            } else if (type === 'error') {
+                icon = 'X';
+            } else if (type === 'warning') {
+                icon = '!';
+            }
+
+            var toast = document.createElement('div');
+            toast.className = 'toast toast-' + (type || 'info');
+            toast.innerHTML = '<span class="alert-icon">' + icon + '</span><span>' + message + '</span>';
+            container.appendChild(toast);
+
+            setTimeout(function() {
+                toast.classList.add('toast-exit');
+                setTimeout(function() {
+                    if (toast.parentNode) {
+                        toast.parentNode.removeChild(toast);
+                    }
+                }, 250);
+            }, 3600);
+        }
+
+        function animateNumber(elementId, endValue, suffix) {
+            var el = document.getElementById(elementId);
+            if (!el) {
+                return;
+            }
+
+            var target = Number(endValue);
+            if (!isFinite(target)) {
+                target = 0;
+            }
+
+            var duration = 800;
+            var start = 0;
+            var startTime = performance.now();
+            var textSuffix = suffix || '';
+
+            function frame(now) {
+                var progress = Math.min((now - startTime) / duration, 1);
+                var eased = 1 - Math.pow(1 - progress, 3);
+                var value = start + (target - start) * eased;
+                el.textContent = Math.round(value) + textSuffix;
+                if (progress < 1) {
+                    requestAnimationFrame(frame);
+                }
+            }
+
+            requestAnimationFrame(frame);
+        }
+
+        function loadDashboardStats() {
+            fetch('/get_dashboard_stats')
+                .then(function(response) {
+                    if (!response.ok) {
+                        throw new Error('Could not load dashboard stats');
+                    }
+                    return response.json();
+                })
+                .then(function(data) {
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+
+                    animateNumber('total-records', Number(data.total_records) || 0);
+                    animateNumber('high-risk', Number(data.high_risk_areas) || 0);
+                    animateNumber('ml-models', Number(data.ml_models) || 0);
+
+                    var avgAccuracy = Number(data.avg_accuracy) || 0;
+                    var avgEl = document.getElementById('avg-accuracy');
+                    if (avgEl) {
+                        avgEl.textContent = avgAccuracy.toFixed(1) + '%';
+                    }
+                })
+                .catch(function(error) {
+                    console.error(error);
+                });
+        }
+
+        function getFeatureCountFromSelect(selectEl) {
+            if (!selectEl || selectEl.selectedIndex < 0) {
+                return 0;
+            }
+            var selected = selectEl.options[selectEl.selectedIndex];
+            return Number(selected.getAttribute('data-feature-count')) || 0;
+        }
+
+        function getFeatureColumnsFromSelect(selectEl) {
+            if (!selectEl || selectEl.selectedIndex < 0) {
+                return '';
+            }
+            var selected = selectEl.options[selectEl.selectedIndex];
+            return selected.getAttribute('data-feature-columns') || '';
+        }
+
+        function getFeatureDefaultsFromSelect(selectEl) {
+            if (!selectEl || selectEl.selectedIndex < 0) {
+                return '';
+            }
+            var selected = selectEl.options[selectEl.selectedIndex];
+            return selected.getAttribute('data-feature-defaults') || '';
+        }
+
+        function countFeatureValues(rawText) {
+            if (!rawText) {
+                return 0;
+            }
+            return rawText
+                .split(',')
+                .map(function(item) { return item.trim(); })
+                .filter(function(item) { return item.length > 0; })
+                .length;
+        }
+
+        function autoFillFeatures(selectId, inputId) {
+            var selectEl = document.getElementById(selectId);
+            var inputEl = document.getElementById(inputId);
+            if (!selectEl || !inputEl) {
+                return;
+            }
+
+            var defaultValues = getFeatureDefaultsFromSelect(selectEl);
+            if (defaultValues) {
+                inputEl.value = defaultValues;
+                inputEl.dispatchEvent(new Event('input'));
+                return;
+            }
+
+            var expected = getFeatureCountFromSelect(selectEl);
+            if (expected > 0) {
+                var generated = [];
+                for (var i = 0; i < expected; i += 1) {
+                    generated.push('0');
+                }
+                inputEl.value = generated.join(', ');
+                inputEl.dispatchEvent(new Event('input'));
+                showToast('Auto-filled with zeros for ' + expected + ' features.', 'warning');
+                return;
+            }
+
+            showToast('No sample values available for this model.', 'warning');
+        }
+
+        function updateFeatureHint(selectId, inputId, hintId) {
+            var selectEl = document.getElementById(selectId);
+            var inputEl = document.getElementById(inputId);
+            var hintEl = document.getElementById(hintId);
+            if (!selectEl || !inputEl || !hintEl) {
+                return;
+            }
+
+            var expected = getFeatureCountFromSelect(selectEl);
+            var provided = countFeatureValues(inputEl.value);
+            var featureColumns = getFeatureColumnsFromSelect(selectEl);
+
+            if (expected <= 0) {
+                hintEl.textContent = '';
+                return;
+            }
+
+            var status = provided === expected ? 'OK' : 'Need ' + expected;
+            var featureText = featureColumns ? ' | Fields: ' + featureColumns : '';
+            hintEl.textContent = 'Provided: ' + provided + ' | Expected: ' + expected + ' | ' + status + featureText;
+        }
+
+        function bindPredictionForm(selectId, inputId, hintId) {
+            var selectEl = document.getElementById(selectId);
+            var inputEl = document.getElementById(inputId);
+            if (!selectEl || !inputEl) {
+                return;
+            }
+
+            var formEl = inputEl.closest('form');
+            updateFeatureHint(selectId, inputId, hintId);
+
+            selectEl.addEventListener('change', function() {
+                updateFeatureHint(selectId, inputId, hintId);
+            });
+
+            inputEl.addEventListener('input', function() {
+                updateFeatureHint(selectId, inputId, hintId);
+            });
+
+            if (!formEl) {
+                return;
+            }
+
+            formEl.addEventListener('submit', function(event) {
+                var expected = getFeatureCountFromSelect(selectEl);
+                if (expected <= 0) {
+                    return;
+                }
+
+                var provided = countFeatureValues(inputEl.value);
+                if (provided !== expected) {
+                    event.preventDefault();
+                    showToast('This model expects ' + expected + ' feature values.', 'error');
+                    inputEl.focus();
+                }
+            });
+        }
+
+        function initializePredictionForms() {
+            bindPredictionForm('predict_model', 'features', 'predict-hint');
+            bindPredictionForm('ms_model', 'ms_features', 'ms-hint');
+            bindPredictionForm('export_model', 'export_features', 'export-hint');
+        }
+        function loadCharts(filename, index) {
+            var chartTypeSelect = document.getElementById('chart-type-' + index);
+            if (!chartTypeSelect) {
+                showToast('Chart type selector not found.', 'error');
+                return;
+            }
+
+            var chartType = chartTypeSelect.value;
+            showLoading();
+
+            fetch('/get_crime_chart/' + encodeURIComponent(filename) + '?chart_type=' + encodeURIComponent(chartType))
+                .then(function(response) {
+                    return response.json();
+                })
+                .then(function(data) {
+                    hideLoading();
+
+                    if (data.error) {
+                        showToast('Error loading data: ' + data.error, 'error');
+                        return;
+                    }
+
+                    if (!Array.isArray(data) || data.length === 0) {
+                        showToast('No chartable numeric columns found.', 'warning');
+                        return;
+                    }
+
+                    var chartsSection = document.getElementById('charts-section');
+                    var chartsContainer = document.getElementById('charts-container');
+
+                    chartInstances.forEach(function(chart) { chart.destroy(); });
+                    chartInstances = [];
+                    chartsContainer.innerHTML = '';
+
+                    data.forEach(function(chartData, idx) {
+                        var card = document.createElement('div');
+                        card.className = 'chart-card';
+
+                        var title = document.createElement('h3');
+                        title.className = 'chart-title';
+                        title.textContent = chartData.title || ('Chart ' + (idx + 1));
+
+                        var wrapper = document.createElement('div');
+                        wrapper.className = 'chart-canvas-wrapper';
+
+                        var canvas = document.createElement('canvas');
+                        canvas.id = 'chart-' + idx;
+                        wrapper.appendChild(canvas);
+
+                        card.appendChild(title);
+                        card.appendChild(wrapper);
+
+                        var rankedAreas = Array.isArray(chartData.top_areas) ? chartData.top_areas : [];
+                        if (rankedAreas.length > 0) {
+                            var topWrap = document.createElement('div');
+                            topWrap.className = 'top-areas-panel';
+
+                            var topTitle = document.createElement('div');
+                            topTitle.className = 'top-areas-title';
+                            topTitle.textContent = 'Top 3 Rated Areas';
+                            topWrap.appendChild(topTitle);
+
+                            rankedAreas.forEach(function(item) {
+                                var row = document.createElement('div');
+                                row.className = 'top-areas-row';
+
+                                var areaLabel = document.createElement('span');
+                                areaLabel.textContent = '#' + item.rank + ' ' + item.area;
+
+                                var areaValue = document.createElement('span');
+                                areaValue.className = 'top-areas-value';
+                                areaValue.textContent = Number(item.value).toFixed(2);
+
+                                row.appendChild(areaLabel);
+                                row.appendChild(areaValue);
+                                topWrap.appendChild(row);
+                            });
+
+                            card.appendChild(topWrap);
+                        }
+
+                        chartsContainer.appendChild(card);
+
+                        var ctx = canvas.getContext('2d');
+                        var palette = [
+                            'rgba(180, 35, 24, 0.86)',
+                            'rgba(217, 119, 6, 0.86)',
+                            'rgba(245, 158, 11, 0.86)',
+                            'rgba(21, 128, 61, 0.86)',
+                            'rgba(15, 118, 110, 0.86)',
+                            'rgba(59, 130, 246, 0.86)',
+                            'rgba(71, 85, 105, 0.86)',
+                            'rgba(190, 24, 93, 0.86)'
+                        ];
+
+                        var multiColorTypes = ['pie', 'doughnut', 'radar', 'polarArea'];
+                        var useMultiColor = multiColorTypes.indexOf(chartType) !== -1;
+                        var datasetLength = Array.isArray(chartData.dataset && chartData.dataset.data) ? chartData.dataset.data.length : 0;
+
+                        var backgroundColor = useMultiColor
+                            ? palette.slice(0, datasetLength)
+                            : (chartData.dataset.backgroundColor || 'rgba(180, 35, 24, 0.78)');
+                        var borderColor = useMultiColor
+                            ? palette.slice(0, datasetLength).map(function(color) { return color.replace('0.86', '1'); })
+                            : (chartData.dataset.borderColor || 'rgba(180, 35, 24, 1)');
+
+                        var chartConfig = {
+                            type: chartType,
+                            data: {
+                                labels: chartData.labels || [],
+                                datasets: [{
+                                    label: chartData.dataset.label,
+                                    data: chartData.dataset.data,
+                                    backgroundColor: backgroundColor,
+                                    borderColor: borderColor,
+                                    borderWidth: 2,
+                                    fill: chartType === 'line',
+                                    tension: chartType === 'line' ? 0.35 : 0
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: {
+                                        position: 'top',
+                                        labels: { color: '#374151' }
+                                    },
+                                    title: {
+                                        display: true,
+                                        text: chartData.title,
+                                        color: '#111827',
+                                        font: { size: 14, weight: '600' }
+                                    }
+                                }
+                            }
+                        };
+
+                        if (!useMultiColor) {
+                            if (chartType === 'bar') {
+                                chartConfig.options.indexAxis = 'y';
+                                chartConfig.options.scales = {
+                                    x: {
+                                        beginAtZero: true,
+                                        ticks: { color: '#4b5563' },
+                                        grid: { color: 'rgba(15, 23, 42, 0.08)' },
+                                        title: {
+                                            display: true,
+                                            text: chartData.dataset.label,
+                                            color: '#374151'
+                                        }
+                                    },
+                                    y: {
+                                        ticks: { color: '#4b5563' },
+                                        grid: { color: 'rgba(15, 23, 42, 0.05)' },
+                                        title: {
+                                            display: true,
+                                            text: chartData.labelAxis || 'Location',
+                                            color: '#374151'
+                                        }
+                                    }
+                                };
+                            } else {
+                                chartConfig.options.scales = {
+                                    y: {
+                                        beginAtZero: true,
+                                        ticks: { color: '#4b5563' },
+                                        grid: { color: 'rgba(15, 23, 42, 0.08)' }
+                                    },
+                                    x: {
+                                        ticks: { color: '#4b5563' },
+                                        grid: { color: 'rgba(15, 23, 42, 0.08)' }
+                                    }
+                                };
+                            }
+                        }
+
+                        var chartInstance = new Chart(ctx, chartConfig);
+                        chartInstances.push(chartInstance);
+                    });
+
+                    chartsSection.style.display = 'block';
+                    chartsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                })
+                .catch(function(error) {
+                    hideLoading();
+                    console.error(error);
+                    showToast('Error loading charts', 'error');
+                });
+        }
+        function showTrainModel(filename) {
+            document.getElementById('train_filename').value = filename;
+            document.getElementById('ml-section').style.display = 'block';
+            showLoading();
+
+            fetch('/get_columns/' + encodeURIComponent(filename))
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    hideLoading();
+
+                    if (data.error) {
+                        showToast('Error: ' + data.error, 'error');
+                        return;
+                    }
+
+                    var select = document.getElementById('target_column');
+                    select.innerHTML = '<option value="">Select column...</option>';
+
+                    (data.columns || []).forEach(function(col) {
+                        var option = document.createElement('option');
+                        option.value = col;
+                        var stats = data.statistics && data.statistics[col] ? data.statistics[col] : null;
+                        option.textContent = stats ? (col + ' (mean: ' + Number(stats.mean).toFixed(2) + ')') : col;
+                        select.appendChild(option);
+                    });
+
+                    document.getElementById('ml-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+                })
+                .catch(function(error) {
+                    hideLoading();
+                    console.error(error);
+                    showToast('Error loading columns', 'error');
+                });
+        }
+
+        function showTrends(filename) {
+            var trendSection = document.getElementById('trend-section');
+            var trendContent = document.getElementById('trend-content');
+            showLoading();
+
+            fetch('/analyze_trends/' + encodeURIComponent(filename))
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    hideLoading();
+
+                    if (data.error) {
+                        showToast('Error: ' + data.error, 'error');
+                        return;
+                    }
+
+                    var html = '';
+                    html += '<div class="trend-stats">';
+                    html += '<div class="trend-stat"><div class="trend-stat-label">Total Records</div><div class="trend-stat-value">' + data.total_records + '</div></div>';
+                    html += '<div class="trend-stat"><div class="trend-stat-label">Crime Types</div><div class="trend-stat-value">' + (data.crime_types || []).length + '</div></div>';
+                    html += '</div>';
+
+                    if (data.context_impact) {
+                        html += '<div class="context-grid">';
+                        html += '<div class="context-card"><h4>Weather Impact</h4>';
+                        for (var weatherKey in data.context_impact.weather) {
+                            if (Object.prototype.hasOwnProperty.call(data.context_impact.weather, weatherKey)) {
+                                html += '<p><strong>' + weatherKey + ':</strong> ' + data.context_impact.weather[weatherKey].description + '</p>';
+                            }
+                        }
+                        html += '</div>';
+
+                        html += '<div class="context-card"><h4>Holiday Impact</h4>';
+                        for (var holidayKey in data.context_impact.holidays) {
+                            if (Object.prototype.hasOwnProperty.call(data.context_impact.holidays, holidayKey)) {
+                                html += '<p><strong>' + holidayKey + ':</strong> ' + data.context_impact.holidays[holidayKey].description + '</p>';
+                            }
+                        }
+                        html += '</div>';
+                        html += '</div>';
+                    }
+
+                    html += '<div class="grid grid-cols-3 form-grid-gap">';
+                    for (var col in data.statistics) {
+                        if (!Object.prototype.hasOwnProperty.call(data.statistics, col)) {
+                            continue;
+                        }
+
+                        var stats = data.statistics[col];
+                        var trend = data.trends ? data.trends[col] : null;
+                        var trendClass = trend && trend.direction === 'increasing' ? 'increasing' : 'decreasing';
+                        var trendIcon = trend && trend.direction === 'increasing' ? 'UP' : 'DOWN';
+
+                        html += '<div class="card trend-card">';
+                        html += '<h4 class="trend-card-title">' + col + '</h4>';
+                        html += '<p class="trend-card-meta">Mean: ' + Number(stats.mean).toFixed(2) + '</p>';
+                        html += '<p class="trend-card-meta">Max: ' + Number(stats.max).toFixed(2) + '</p>';
+                        html += '<p class="trend-card-meta">Min: ' + Number(stats.min).toFixed(2) + '</p>';
+                        html += '<p class="trend-card-meta">Std: ' + Number(stats.std).toFixed(2) + '</p>';
+
+                        if (trend) {
+                            html += '<p class="trend-stat-value ' + trendClass + '">Trend: ' + trendIcon + ' ' + trend.direction + ' (' + Number(trend.change_rate).toFixed(1) + '%)</p>';
+                        }
+
+                        html += '</div>';
+                    }
+                    html += '</div>';
+
+                    trendContent.innerHTML = html;
+                    trendSection.style.display = 'block';
+                    trendSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+                    var totalEl = document.getElementById('total-records');
+                    if (totalEl) {
+                        totalEl.textContent = data.total_records;
+                    }
+
+                    var highRiskCount = Object.keys(data.statistics || {}).filter(function(key) {
+                        return Number(data.statistics[key].mean) > 50;
+                    }).length;
+
+                    var highRiskEl = document.getElementById('high-risk');
+                    if (highRiskEl) {
+                        highRiskEl.textContent = highRiskCount;
+                    }
+                })
+                .catch(function(error) {
+                    hideLoading();
+                    console.error(error);
+                    showToast('Error loading trends', 'error');
+                });
+        }
+    </script>
+</body>
+</html>
+
